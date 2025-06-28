@@ -13,32 +13,31 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4-0613", // force version that supports functions
         messages: [
           {
             role: "user",
-            content:
-              "Analyze the current market condition and return a trading signal and confidence score.",
+            content: "Generate a trading signal with a confidence score from current market conditions.",
           },
         ],
         temperature: 0,
         functions: [
           {
             name: "generate_signal",
-            description: "Generate a trading signal and confidence score",
+            description: "Returns trading signal and confidence score",
             parameters: {
               type: "object",
               properties: {
                 signal: {
                   type: "string",
                   enum: ["Buy", "Sell", "Hold"],
-                  description: "The recommended trading signal",
+                  description: "Trading signal to follow",
                 },
                 confidence: {
                   type: "integer",
                   minimum: 0,
                   maximum: 100,
-                  description: "Confidence level from 0 to 100",
+                  description: "Confidence level in percent",
                 },
               },
               required: ["signal", "confidence"],
@@ -51,15 +50,14 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    const functionArgs =
-      data.choices?.[0]?.message?.function_call?.arguments;
+    const rawArgs = data.choices?.[0]?.message?.function_call?.arguments;
 
-    if (!functionArgs) {
+    if (!rawArgs) {
+      console.error("Missing function_call.arguments:", data);
       return res.status(500).json({ error: "No function response from AI." });
     }
 
-    const parsed = JSON.parse(functionArgs);
-
+    const parsed = JSON.parse(rawArgs);
     return res.status(200).json(parsed);
   } catch (err) {
     return res.status(500).json({ error: "OpenAI API error: " + err.message });
