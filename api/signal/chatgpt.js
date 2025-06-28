@@ -35,4 +35,33 @@ export default async function handler(req, res) {
                   description: "The recommended trading signal",
                 },
                 confidence: {
-                  type: "in
+                  type: "integer",
+                  minimum: 0,
+                  maximum: 100,
+                  description: "Confidence level from 0 to 100",
+                },
+              },
+              required: ["signal", "confidence"],
+            },
+          },
+        ],
+        function_call: { name: "generate_signal" },
+      }),
+    });
+
+    const data = await response.json();
+
+    const functionArgs =
+      data.choices?.[0]?.message?.function_call?.arguments;
+
+    if (!functionArgs) {
+      return res.status(500).json({ error: "No function response from AI." });
+    }
+
+    const parsed = JSON.parse(functionArgs);
+
+    return res.status(200).json(parsed);
+  } catch (err) {
+    return res.status(500).json({ error: "OpenAI API error: " + err.message });
+  }
+}
