@@ -6,11 +6,16 @@ export default async function handler(req, res) {
   }
 
   const prompt = `
-You're a financial AI assistant. Based on the following news, return a trading signal.
+You are a financial market assistant API. 
+ONLY return a valid JSON object like this:
+{ "signal": "Buy", "confidence": 87 }
 
-News: "Bitcoin surges past $70K amid renewed institutional interest."
+Do not say anything else. Do not explain.
 
-Respond ONLY in this format: { "signal": "Buy", "confidence": 87 }
+Here’s some sample market data:
+"Bitcoin surges 4% after Fed hints at pause. Ethereum gains 6%."
+
+Respond now:
 `;
 
   try {
@@ -23,20 +28,30 @@ Respond ONLY in this format: { "signal": "Buy", "confidence": 87 }
       body: JSON.stringify({
         model: "gpt-4",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        temperature: 0,
+        max_tokens: 100,
       }),
     });
 
     const data = await response.json();
-    const aiMessage = data.choices?.[0]?.message?.content || "";
+    const aiResponse = data.choices?.[0]?.message?.content || "";
+
+    // DEBUG: log full AI response to help us debug
+    console.log("AI raw response:", aiResponse);
+
+    // Try to extract JSON block
+    const match = aiResponse.match(/\{[\s\S]*?\}/);
+    if (!match) {
+      return res.status(500).json({ error: "AI did not return JSON format." });
+    }
 
     try {
-      const parsed = JSON.parse(aiMessage);
-      return res.status(200).json(parsed);
-    } catch {
-      return res.status(500).json({ error: "Could not parse AI response." });
+      const json = JSON.parse(match[0]);
+      return res.status(200).json(json);
+    } catch (e) {
+      return res.status(500).json({ error: "AI response was not valid JSON." });
     }
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "OpenAI API call failed: " + err.message });
   }
 }
