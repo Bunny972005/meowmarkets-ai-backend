@@ -5,19 +5,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Missing OpenAI API Key" });
   }
 
-  const prompt = `
-You are a financial market assistant API. 
-ONLY return a valid JSON object like this:
-{ "signal": "Buy", "confidence": 87 }
-
-Do not say anything else. Do not explain.
-
-Here’s some sample market data:
-"Bitcoin surges 4% after Fed hints at pause. Ethereum gains 6%."
-
-Respond now:
-`;
-
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -27,31 +14,25 @@ Respond now:
       },
       body: JSON.stringify({
         model: "gpt-4",
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          {
+            role: "user",
+            content:
+              "Analyze the current market condition and return a trading signal and confidence score.",
+          },
+        ],
         temperature: 0,
-        max_tokens: 100,
-      }),
-    });
-
-    const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content || "";
-
-    // DEBUG: log full AI response to help us debug
-    console.log("AI raw response:", aiResponse);
-
-    // Try to extract JSON block
-    const match = aiResponse.match(/\{[\s\S]*?\}/);
-    if (!match) {
-      return res.status(500).json({ error: "AI did not return JSON format." });
-    }
-
-    try {
-      const json = JSON.parse(match[0]);
-      return res.status(200).json(json);
-    } catch (e) {
-      return res.status(500).json({ error: "AI response was not valid JSON." });
-    }
-  } catch (err) {
-    return res.status(500).json({ error: "OpenAI API call failed: " + err.message });
-  }
-}
+        functions: [
+          {
+            name: "generate_signal",
+            description: "Generate a trading signal and confidence score",
+            parameters: {
+              type: "object",
+              properties: {
+                signal: {
+                  type: "string",
+                  enum: ["Buy", "Sell", "Hold"],
+                  description: "The recommended trading signal",
+                },
+                confidence: {
+                  type: "in
